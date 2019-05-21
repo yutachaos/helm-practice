@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ template "cloudwatch-agent.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels: {{ include "cloudwatch-agent.labels" . | indent 8 }}
+  template:
+    metadata:
+      labels: {{ include "cloudwatch-agent.labels" . | indent 8 }}
+    spec:
+      containers:
+        - name: {{ template "cloudwatch-agent.fullname" . }}
+          image: amazon/cloudwatch-agent:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          #ports:
+          #  - containerPort: 8125
+          #    hostPort: 8125
+          #    protocol: UDP
+          resources:
+ {{ toYaml .Values.resources | indent 10 }}
+          # Please don't change below envs
+          env:
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: HOST_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: K8S_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          # Please don't change the mountPath
+          volumeMounts:
+            - name: cwagentconfig
+              mountPath: /etc/cwagentconfig
+      volumes:
+        - name: cwagentconfig
+          configMap:
+             name: {{ template "cloudwatch-agent.fullname" . }}
+      terminationGracePeriodSeconds: 60
+      serviceAccountName: {{ template "cloudwatch-agent.fullname" . }}
